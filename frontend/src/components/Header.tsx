@@ -30,7 +30,7 @@ export function Header({ onNewChat }: HeaderProps) {
           variant="outline"
           size="sm"
           onClick={onNewChat}
-          className="gap-1.5 border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-zinc-50 hover:bg-zinc-900 transition-all text-xs"
+          className="gap-1.5 border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-zinc-50 hover:bg-zinc-900 transition-all text-xs rounded-full px-3.5"
         >
           <Plus className="w-3.5 h-3.5" />
           New Chat

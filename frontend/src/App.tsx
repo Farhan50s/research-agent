@@ -1,27 +1,26 @@
 import { useState } from "react"
-import { AnimatePresence } from "framer-motion"
 import { Header } from "@/components/Header"
-import { NormalMode } from "@/components/NormalMode"
 import { AgentMode } from "@/components/AgentMode"
 import { Toaster } from "@/components/ui/toaster"
 
 function App() {
-  const [isAgentMode, setIsAgentMode] = useState(false)
+  const [chatKey, setChatKey] = useState(0)
+
+  const handleNewChat = () => {
+    setChatKey((prev) => prev + 1)
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header isAgentMode={isAgentMode} onToggle={setIsAgentMode} />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Sticky header */}
+      <Header onNewChat={handleNewChat} />
 
-      <main className="relative">
-        <AnimatePresence mode="wait">
-          {isAgentMode ? (
-            <AgentMode key="agent" />
-          ) : (
-            <NormalMode key="normal" />
-          )}
-        </AnimatePresence>
+      {/* Main chat window */}
+      <main className="flex-1 flex flex-col relative">
+        <AgentMode key={chatKey} />
       </main>
 
+      {/* Toast provider */}
       <Toaster />
     </div>
   )

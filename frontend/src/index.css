@@ -4,30 +4,30 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 213 31% 91%;
-    --card: 222 47% 14%;
-    --card-foreground: 213 31% 91%;
-    --popover: 222 47% 14%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 250 100% 70%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 222 47% 18%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 222 47% 18%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 250 100% 70%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 213 31% 91%;
-    --border: 222 47% 20%;
-    --input: 222 47% 18%;
-    --ring: 250 100% 70%;
+    --background: 240 10% 3.9%; /* Zinc-950 */
+    --foreground: 240 5% 96%; /* Zinc-50 */
+    --card: 240 10% 5.9%; /* Zinc-900 */
+    --card-foreground: 240 5% 96%;
+    --popover: 240 10% 5.9%;
+    --popover-foreground: 240 5% 96%;
+    --primary: 250 95% 65%; /* Electric Indigo / Violet */
+    --primary-foreground: 240 10% 98%;
+    --secondary: 240 5.9% 10%;
+    --secondary-foreground: 240 5% 96%;
+    --muted: 240 5.9% 10%;
+    --muted-foreground: 240 5% 64.9%; /* Zinc-400 */
+    --accent: 250 95% 65%;
+    --accent-foreground: 240 10% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 240 5% 96%;
+    --border: 240 5.9% 15%; /* Zinc-800 */
+    --input: 240 5.9% 10%;
+    --ring: 250 95% 65%;
     --radius: 0.75rem;
 
     /* Agent mode gradient colors */
-    --gradient-from: 250 100% 70%;
-    --gradient-to: 290 100% 70%;
+    --gradient-from: 250 95% 65%;
+    --gradient-to: 270 95% 65%;
   }
 }
 
@@ -38,8 +38,7 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     background-image: 
-      radial-gradient(ellipse at 20% 50%, hsl(250 100% 70% / 0.05) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, hsl(290 100% 70% / 0.05) 0%, transparent 50%);
+      radial-gradient(ellipse at 50% 0%, hsl(250 95% 65% / 0.04) 0%, transparent 60%);
     min-height: 100vh;
   }
   h1, h2, h3, h4, h5, h6 {
@@ -147,7 +146,7 @@
 }
 .prose-nexus pre {
   @apply rounded-lg p-4 mb-4 overflow-x-auto;
-  background: hsl(222 47% 8%);
+  background: hsl(240 5.9% 10%);
 }
 .prose-nexus pre code {
   @apply bg-transparent p-0 text-foreground;

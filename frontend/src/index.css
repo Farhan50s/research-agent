@@ -100,79 +100,79 @@
 }
 
 /* Prose customizations for markdown */
-.prose-nexus {
+.prose-zynt {
   @apply text-foreground;
 }
-.prose-nexus h1 {
+.prose-zynt h1 {
   @apply text-2xl font-display font-bold gradient-text mb-4 mt-0;
 }
-.prose-nexus h2 {
+.prose-zynt h2 {
   @apply text-xl font-display font-semibold text-foreground mb-3 mt-6 pb-2;
   border-bottom: 1px solid hsl(var(--border));
 }
-.prose-nexus h3 {
+.prose-zynt h3 {
   @apply text-lg font-display font-semibold text-foreground mb-2 mt-4;
 }
-.prose-nexus p {
+.prose-zynt p {
   @apply text-muted-foreground leading-7 mb-4;
 }
-.prose-nexus ul {
+.prose-zynt ul {
   @apply list-none space-y-1 mb-4 pl-0;
 }
-.prose-nexus ul li {
+.prose-zynt ul li {
   @apply text-muted-foreground flex items-start gap-2;
 }
-.prose-nexus ul li::before {
+.prose-zynt ul li::before {
   content: "▸";
   @apply text-primary mt-0.5 flex-shrink-0;
 }
-.prose-nexus ol {
+.prose-zynt ol {
   @apply list-decimal pl-6 space-y-1 mb-4;
 }
-.prose-nexus ol li {
+.prose-zynt ol li {
   @apply text-muted-foreground;
 }
-.prose-nexus blockquote {
+.prose-zynt blockquote {
   @apply border-l-4 pl-4 my-4 italic text-muted-foreground;
   border-color: hsl(var(--primary));
   background: hsl(var(--primary) / 0.05);
   padding: 12px 16px;
   border-radius: 0 8px 8px 0;
 }
-.prose-nexus code {
+.prose-zynt code {
   @apply font-mono text-sm px-1.5 py-0.5 rounded;
   background: hsl(var(--muted));
   color: hsl(var(--primary));
 }
-.prose-nexus pre {
+.prose-zynt pre {
   @apply rounded-lg p-4 mb-4 overflow-x-auto;
   background: hsl(240 5.9% 10%);
 }
-.prose-nexus pre code {
+.prose-zynt pre code {
   @apply bg-transparent p-0 text-foreground;
 }
-.prose-nexus a {
+.prose-zynt a {
   @apply text-primary underline underline-offset-2 hover:opacity-80 transition-opacity;
 }
-.prose-nexus strong {
+.prose-zynt strong {
   @apply text-foreground font-semibold;
 }
-.prose-nexus table {
+.prose-zynt table {
   @apply w-full border-collapse mb-4 text-sm;
 }
-.prose-nexus th {
+.prose-zynt th {
   @apply px-3 py-2 text-left font-semibold text-foreground;
   background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
 }
-.prose-nexus td {
+.prose-zynt td {
   @apply px-3 py-2 text-muted-foreground;
   border: 1px solid hsl(var(--border));
 }
-.prose-nexus tr:nth-child(even) td {
+.prose-zynt tr:nth-child(even) td {
   background: hsl(var(--muted) / 0.3);
 }
-.prose-nexus hr {
+.prose-zynt hr {
   @apply my-6;
   border-color: hsl(var(--border));
 }

@@ -19,6 +19,11 @@ interface Message {
   isLoading?: boolean;
 }
 
+interface AgentModeProps {
+  sessionMessages: Message[];
+  onUpdateMessages: (newMessages: Message[]) => void;
+}
+
 const suggestedResearchQueries = [
   "What are the latest breakthroughs in quantum computing?",
   "How is AI transforming healthcare in 2024?",
@@ -33,9 +38,8 @@ const suggestedSimpleQueries = [
   "Give me a quick summary of general relativity",
 ]
 
-export function AgentMode() {
+export function AgentMode({ sessionMessages, onUpdateMessages }: AgentModeProps) {
   const [isResearchMode, setIsResearchMode] = useState(true)
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   
@@ -45,7 +49,7 @@ export function AgentMode() {
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [sessionMessages])
 
   // Focus input on load
   useEffect(() => {
@@ -67,27 +71,24 @@ export function AgentMode() {
     const userMessageId = `msg-${Date.now()}-user`
     const assistantMessageId = `msg-${Date.now()}-assistant`
 
-    // Append user message
-    const newMessages: Message[] = [
-      ...messages,
-      {
-        id: userMessageId,
-        role: "user",
-        text: queryText,
-      },
-    ]
-    setMessages(newMessages)
+    const userMsg: Message = {
+      id: userMessageId,
+      role: "user",
+      text: queryText,
+    }
 
-    // Add placeholder loading bubble
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: assistantMessageId,
-        role: "assistant",
-        text: "",
-        isLoading: true,
-      },
-    ])
+    const loadingMsg: Message = {
+      id: assistantMessageId,
+      role: "assistant",
+      text: "",
+      isLoading: true,
+    }
+
+    // Capture state snapshot before updating
+    const messagesSnapshot = [...sessionMessages]
+
+    // Set user message + loading placeholder
+    onUpdateMessages([...messagesSnapshot, userMsg, loadingMsg])
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/research", {
@@ -106,21 +107,20 @@ export function AgentMode() {
       const data = await response.json()
 
       // Replace placeholder with final research results
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                text: data.research_data || "No response received.",
-                sources: data.metadata || [],
-                isLoading: false,
-              }
-            : msg
-        )
-      )
+      onUpdateMessages([
+        ...messagesSnapshot,
+        userMsg,
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          text: data.research_data || "No response received.",
+          sources: data.metadata || [],
+          isLoading: false,
+        }
+      ])
     } catch (error) {
-      // Remove loading bubble
-      setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId))
+      // Revert loading bubble but keep user message
+      onUpdateMessages([...messagesSnapshot, userMsg])
       toast({
         title: "Backend Unreachable",
         description: "Could not connect to the research server at http://127.0.0.1:8000. Please ensure the backend server is running.",
@@ -158,7 +158,7 @@ export function AgentMode() {
       {/* Scrollable messages container */}
       <div className="flex-1 space-y-6">
         <AnimatePresence initial={false}>
-          {messages.length === 0 ? (
+          {sessionMessages.length === 0 ? (
             /* EMPTY STATE GREETING */
             <motion.div
               key="empty-state"
@@ -204,13 +204,13 @@ export function AgentMode() {
               {/* Manual Welcome Message at start of thread */}
               <div className="flex justify-start w-full">
                 <div className="max-w-[85%] sm:max-w-[80%] text-left">
-                  <div className="prose-nexus text-zinc-200 bg-transparent px-2">
+                  <div className="prose-zynt text-zinc-200 bg-transparent px-2">
                     <p className="text-sm text-zinc-300 leading-relaxed mb-4">{welcomeText}</p>
                   </div>
                 </div>
               </div>
 
-              {messages.map((message) => {
+              {sessionMessages.map((message) => {
                 const isUser = message.role === "user"
 
                 return (
@@ -248,7 +248,7 @@ export function AgentMode() {
                             </div>
                           ) : (
                             /* AI Response Report Container */
-                            <div className="prose-nexus text-zinc-200 bg-transparent px-2">
+                            <div className="prose-zynt text-zinc-200 bg-transparent px-2">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
@@ -344,7 +344,7 @@ export function AgentMode() {
 
             {/* Bottom Half: Action Bar */}
             <div className="flex items-center justify-between px-4 pb-3">
-              {/* Deep Research Toggle Button on Left */}
+              {/* Agent Research Toggle Button on Left */}
               <button
                 onClick={() => setIsResearchMode(!isResearchMode)}
                 className={`rounded-full px-4 py-1.5 flex items-center gap-2 text-xs font-medium transition-all duration-200 select-none ${
@@ -354,7 +354,7 @@ export function AgentMode() {
                 }`}
               >
                 <Globe className={`w-3.5 h-3.5 ${isResearchMode ? "text-indigo-400" : "text-zinc-400"}`} />
-                Deep Research
+                Agent Research
               </button>
 
               {/* Send Button on Right */}
@@ -374,8 +374,8 @@ export function AgentMode() {
           </div>
           <p className="text-[10px] text-zinc-500 text-center mt-2.5 select-none">
             {isResearchMode 
-              ? "NexusAI synthesis results are built from live search indexes. Verify information."
-              : "NexusAI can make mistakes. Please verify important details."}
+              ? "Zynt synthesis results are built from live search indexes. Verify information."
+              : "Zynt can make mistakes. Please verify important details."}
           </p>
         </div>
       </div>

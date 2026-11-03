@@ -226,22 +226,7 @@ export function AgentMode({
         return
       }
 
-      // Toggle Research / Chat Mode: Ctrl+Shift+M or Alt+R
-      if (
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === "m" || e.key.toLowerCase() === "r")) ||
-        (e.altKey && e.key.toLowerCase() === "r")
-      ) {
-        e.preventDefault()
-        const next = !isResearchMode
-        onToggleMode(next)
-        toast({
-          title: next ? "Agent Research Mode Active" : "Simple Chat Mode Active",
-          description: next
-            ? "Switched to deep web research with multi-source synthesis."
-            : "Switched to fast, direct answers.",
-        })
-        return
-      }
+
     }
     window.addEventListener("keydown", handleGlobalKeyDown)
     return () => window.removeEventListener("keydown", handleGlobalKeyDown)
@@ -576,22 +561,7 @@ export function AgentMode({
       return
     }
 
-    // Ctrl+Shift+M or Alt+R: Toggle Mode
-    if (
-      ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === "m" || e.key.toLowerCase() === "r")) ||
-      (e.altKey && e.key.toLowerCase() === "r")
-    ) {
-      e.preventDefault()
-      const next = !isResearchMode
-      onToggleMode(next)
-      toast({
-        title: next ? "Agent Research Mode Active" : "Simple Chat Mode Active",
-        description: next
-          ? "Switched to deep web research with multi-source synthesis."
-          : "Switched to fast, direct answers.",
-      })
-      return
-    }
+
   }
 
   const handleCopyReport = async (text: string, id: string) => {

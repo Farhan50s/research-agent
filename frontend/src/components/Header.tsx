@@ -124,7 +124,7 @@ export function Header({
         {/* Backend Status indicator */}
         <div
           className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-850"
-          title="Backend FastAPI Service Connected at http://127.0.0.1:8000"
+          title={`Backend FastAPI Service Connected at ${(import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "")}`}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="font-mono text-zinc-400">API</span>

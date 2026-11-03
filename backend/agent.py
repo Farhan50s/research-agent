@@ -24,6 +24,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "Zynt AI Research Agent API", "version": "1.0.0"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
 # ==========================================
 # 2. STATE SCHEMA & REQUEST MODELS
 # ==========================================
@@ -129,4 +137,5 @@ async def handle_research(payload: ResearchRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("agent:app", host="127.0.0.1", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("agent:app", host="0.0.0.0", port=port, reload=True)

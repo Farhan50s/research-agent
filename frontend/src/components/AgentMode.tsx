@@ -103,6 +103,8 @@ const researchLoadingSteps = [
   "Synthesizing findings into structured research report...",
 ]
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "")
+
 export function AgentMode({
   sessionMessages,
   onUpdateMessages,
@@ -181,7 +183,7 @@ export function AgentMode({
     onUpdateMessages([...messagesSnapshot, userMsg, loadingMsg])
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/research", {
+      const response = await fetch(`${API_BASE_URL}/api/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -212,7 +214,7 @@ export function AgentMode({
       toast({
         title: "Backend Unreachable",
         description:
-          "Could not connect to the research server at http://127.0.0.1:8000. Please ensure the backend server is running.",
+          `Could not connect to the research server at ${API_BASE_URL}. Please ensure the backend server is running.`,
         variant: "destructive",
       })
     } finally {

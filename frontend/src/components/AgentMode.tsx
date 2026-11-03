@@ -193,7 +193,14 @@ export function AgentMode({
       })
 
       if (!response.ok) {
-        throw new Error(`Server returned HTTP ${response.status}`)
+        let errorDetail = `Server returned HTTP ${response.status}`
+        try {
+          const errData = await response.json()
+          if (errData && errData.detail) {
+            errorDetail = typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail)
+          }
+        } catch {}
+        throw new Error(errorDetail)
       }
 
       const data = await response.json()
@@ -209,12 +216,12 @@ export function AgentMode({
           isLoading: false,
         },
       ])
-    } catch (error) {
+    } catch (error: any) {
       onUpdateMessages([...messagesSnapshot, userMsg])
       toast({
-        title: "Backend Unreachable",
+        title: "Research Request Error",
         description:
-          `Could not connect to the research server at ${API_BASE_URL}. Please ensure the backend server is running.`,
+          error?.message || `Could not connect to the research server at ${API_BASE_URL}.`,
         variant: "destructive",
       })
     } finally {

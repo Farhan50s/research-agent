@@ -32,12 +32,17 @@ def get_tavily_key() -> str:
     key = os.getenv("TAVILY_API_KEY", "").strip().strip('"').strip("'")
     return key
 
+def get_groq_model() -> str:
+    model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip().strip('"').strip("'")
+    return model or "openai/gpt-oss-120b"
+
 @app.get("/")
 async def root():
     return {
         "status": "ok",
         "service": "Zynt AI Research Agent API",
         "version": "1.0.0",
+        "model": get_groq_model(),
         "hosting": "Vercel Serverless (Fluid Compute)"
     }
 
@@ -47,6 +52,7 @@ async def health():
     tavily_set = bool(get_tavily_key())
     return {
         "status": "healthy",
+        "model": get_groq_model(),
         "keys_configured": {
             "groq": groq_set,
             "tavily": tavily_set
@@ -97,7 +103,7 @@ def planner_node(state: ResearchState) -> dict:
             status_code=400,
             detail="GROQ_API_KEY is not configured in the environment."
         )
-    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0, groq_api_key=groq_key)
+    llm = ChatGroq(model=get_groq_model(), temperature=0, groq_api_key=groq_key)
     response = (prompt | llm).invoke({"question": state["question"]})
     queries = [line.lstrip("- ").strip() for line in response.content.splitlines() if line.strip()]
     return {"sub_questions": queries, "current_index": 0}
@@ -119,7 +125,7 @@ def synthesizer_node(state: ResearchState) -> dict:
         ("human", "Question: {question}\n\nSources:\n{sources}")
     ])
     groq_key = get_groq_key()
-    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3, groq_api_key=groq_key)
+    llm = ChatGroq(model=get_groq_model(), temperature=0.3, groq_api_key=groq_key)
     response = (prompt | llm).invoke({"question": state["question"], "sources": sources_text})
     
     references = "\n\n### 📚 Sources\n" + "\n".join([f"- [{i}] {res['title']} ({res['url']})" for i, res in enumerate(results, 1)])
@@ -168,7 +174,7 @@ async def handle_research(payload: ResearchRequest):
 
     try:
         if payload.mode == "simple":
-            llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.5, groq_api_key=groq_key)
+            llm = ChatGroq(model=get_groq_model(), temperature=0.5, groq_api_key=groq_key)
             response = llm.invoke(payload.question)
             return {"research_data": response.content, "metadata": []}
         

@@ -59,16 +59,18 @@ interface AgentModeProps {
 
 type ToneType = "balanced" | "executive" | "academic" | "eli5"
 
+const CURRENT_YEAR = new Date().getFullYear()
+
 const researchPromptCards = [
   {
     icon: Atom,
     category: "Quantum Tech",
-    prompt: "What are the latest breakthroughs in quantum computing and error correction in 2024?",
+    prompt: `What are the latest breakthroughs in quantum computing and error correction in ${CURRENT_YEAR}?`,
   },
   {
     icon: HeartPulse,
     category: "Healthcare AI",
-    prompt: "How is generative AI transforming drug discovery and clinical trials in 2024?",
+    prompt: `How is generative AI transforming drug discovery and clinical trials in ${CURRENT_YEAR}?`,
   },
   {
     icon: Zap,
@@ -356,7 +358,7 @@ export function AgentMode({
 
     let enhanced = trimmed
     if (isResearchMode) {
-      enhanced = `Conduct an in-depth research investigation on: ${trimmed}. Provide core principles, recent 2024 breakthroughs, key challenges, and industry implications.`
+      enhanced = `Conduct an in-depth research investigation on: ${trimmed}. Provide core principles, latest ${CURRENT_YEAR} breakthroughs, key challenges, and industry implications.`
     } else {
       enhanced = `Provide a comprehensive, clear, and well-structured answer explaining: ${trimmed}. Include practical examples and key takeaways.`
     }

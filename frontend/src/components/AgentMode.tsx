@@ -148,6 +148,28 @@ export function AgentMode({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const recognitionRef = useRef<any>(null)
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([])
+
+  // Preload and cache speech synthesis voices asynchronously
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+
+    const updateVoices = () => {
+      const v = window.speechSynthesis.getVoices()
+      if (v && v.length > 0) {
+        setAvailableVoices(v)
+      }
+    }
+
+    updateVoices()
+    window.speechSynthesis.onvoiceschanged = updateVoices
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.onvoiceschanged = null
+      }
+    }
+  }, [])
 
   // Cycle through research loading steps for rich progress feedback
   useEffect(() => {
@@ -314,48 +336,136 @@ export function AgentMode({
     }
   }
 
-  // Text-to-Speech (Read Aloud)
+  // Text-to-Speech (Read Aloud) - with voice resolution & garbage collection guard
   const handleReadAloud = (text: string, id: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       toast({
         title: "Text-to-Speech Unavailable",
-        description: "Your browser does not support audio speech synthesis.",
+        description: "Your browser does not support audio speech synthesis. Please use Chrome or Edge.",
         variant: "destructive",
       })
       return
     }
 
+    // Toggle off if currently speaking this message
     if (speakingMessageId === id) {
       window.speechSynthesis.cancel()
       setSpeakingMessageId(null)
+      utteranceRef.current = null
+      toast({
+        title: "Audio Stopped",
+        description: "Reading aloud was paused.",
+      })
       return
     }
 
+    // Clear previous speech
     window.speechSynthesis.cancel()
 
-    // Strip markdown formatting symbols for natural spoken speech
+    // Thoroughly clean markdown, tables, citations, URLs, code blocks, and non-ASCII punctuation
     const cleanSpeechText = text
-      .replace(/###\s+/g, "")
-      .replace(/##\s+/g, "")
-      .replace(/#\s+/g, "")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .replace(/\[\d+\]/g, "")
+      .replace(/```[\s\S]*?```/g, "Code block omitted.")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/【[^】]+】/g, "")
       .replace(/\[\^?\w+\]/g, "")
       .replace(/https?:\/\/[^\s)]+/g, "")
+      .replace(/^#+\s+/gm, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
       .replace(/\|/g, " ")
-      .replace(/-{3,}/g, "")
+      .replace(/[-*]\s+/g, "")
+      .replace(/[^\x20-\x7E\n]/g, " ")
+      .replace(/\s+/g, " ")
       .trim()
 
-    const utterance = new SpeechSynthesisUtterance(cleanSpeechText.slice(0, 1500))
-    utterance.rate = 1.05
+    if (!cleanSpeechText) {
+      toast({
+        title: "Nothing to Read",
+        description: "This response does not contain readable text.",
+      })
+      return
+    }
+
+    // Limit length to avoid browser synthesis buffer overflows
+    const speechChunk = cleanSpeechText.slice(0, 2500)
+    const utterance = new SpeechSynthesisUtterance(speechChunk)
+
+    // Resolve best available English / system voice
+    const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices()
+    const preferredVoice =
+      voices.find(
+        (v) =>
+          v.lang.startsWith("en") &&
+          (v.name.includes("Natural") ||
+            v.name.includes("Online") ||
+            v.name.includes("Google") ||
+            v.name.includes("David") ||
+            v.name.includes("Zira"))
+      ) ||
+      voices.find((v) => v.lang.startsWith("en")) ||
+      voices[0]
+
+    if (preferredVoice) {
+      utterance.voice = preferredVoice
+      utterance.lang = preferredVoice.lang
+    } else {
+      utterance.lang = "en-US"
+    }
+
+    utterance.rate = 1.0
     utterance.pitch = 1.0
 
-    utterance.onend = () => setSpeakingMessageId(null)
-    utterance.onerror = () => setSpeakingMessageId(null)
+    // Store in ref & window to prevent Chromium garbage collection bug (Chromium issue 883498)
+    utteranceRef.current = utterance
+    ;(window as any).__zynt_utterance = utterance
 
-    window.speechSynthesis.speak(utterance)
-    setSpeakingMessageId(id)
+    utterance.onstart = () => {
+      setSpeakingMessageId(id)
+      const voiceLabel = preferredVoice ? preferredVoice.name.replace(/\s*\([^)]*\)/g, "") : "system voice"
+      toast({
+        title: "Reading Aloud",
+        description: `Playing audio with ${voiceLabel}. Click Listen again to stop.`,
+      })
+    }
+
+    utterance.onend = () => {
+      setSpeakingMessageId(null)
+      utteranceRef.current = null
+    }
+
+    utterance.onerror = (e) => {
+      console.warn("SpeechSynthesis playback error:", e)
+      setSpeakingMessageId(null)
+      utteranceRef.current = null
+      if (e.error !== "canceled" && e.error !== "interrupted") {
+        toast({
+          title: "Audio Issue",
+          description: `Speech engine returned: ${e.error || "playback blocked"}. Check system volume.`,
+          variant: "destructive",
+        })
+      }
+    }
+
+    // Wake up audio context in Chrome/Edge
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume()
+    }
+
+    // Small delay allows browser audio pipeline to reset after cancel()
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.resume()
+        window.speechSynthesis.speak(utterance)
+      } catch (err: any) {
+        console.error("SpeechSynthesis speak invocation failed:", err)
+        setSpeakingMessageId(null)
+        toast({
+          title: "Audio Error",
+          description: err?.message || "Failed to initiate audio output.",
+          variant: "destructive",
+        })
+      }
+    }, 80)
   }
 
   // Feedback (Thumbs Up / Thumbs Down)

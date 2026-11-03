@@ -139,6 +139,23 @@ export function App() {
         e.preventDefault()
         handleNewChat()
       }
+      // Ctrl+Shift+M, Ctrl+Shift+R, or Alt+R: Toggle Mode
+      if (
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === "m" || e.key.toLowerCase() === "r")) ||
+        (e.altKey && e.key.toLowerCase() === "r")
+      ) {
+        e.preventDefault()
+        setIsResearchMode((prev) => {
+          const next = !prev
+          toast({
+            title: next ? "Agent Research Mode Active" : "Simple Chat Mode Active",
+            description: next
+              ? "Switched to deep web research with multi-source synthesis."
+              : "Switched to fast, direct answers.",
+          })
+          return next
+        })
+      }
     }
 
     window.addEventListener("keydown", handleGlobalKeyDown)
@@ -649,6 +666,30 @@ export function App() {
             <span className="text-zinc-300">Start new chat</span>
             <kbd className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px]">
               Ctrl + N
+            </kbd>
+          </div>
+          <div className="flex items-center justify-between py-1.5 border-b border-zinc-850">
+            <span className="text-zinc-300">Toggle Research / Chat mode</span>
+            <kbd className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px]">
+              Ctrl + Shift + M / Alt + R
+            </kbd>
+          </div>
+          <div className="flex items-center justify-between py-1.5 border-b border-zinc-850">
+            <span className="text-zinc-300">Voice input (Speech to text)</span>
+            <kbd className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px]">
+              Ctrl + M / Alt + M
+            </kbd>
+          </div>
+          <div className="flex items-center justify-between py-1.5 border-b border-zinc-850">
+            <span className="text-zinc-300">Enhance prompt (Magic Wand)</span>
+            <kbd className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px]">
+              Ctrl + E / Alt + E
+            </kbd>
+          </div>
+          <div className="flex items-center justify-between py-1.5 border-b border-zinc-850">
+            <span className="text-zinc-300">Halt generation</span>
+            <kbd className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px]">
+              Escape
             </kbd>
           </div>
           <div className="flex items-center justify-between py-1.5">

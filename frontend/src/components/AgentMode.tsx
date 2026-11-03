@@ -196,17 +196,56 @@ export function AgentMode({
     }
   }, [])
 
-  // Global Escape key cancels in-flight generation
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Escape: Stop active generation
       if (e.key === "Escape" && loading) {
         e.preventDefault()
         handleStopGeneration()
+        return
+      }
+
+      // Voice Input: Ctrl+M / Cmd+M or Alt+M
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "m") ||
+        (e.altKey && e.key.toLowerCase() === "m")
+      ) {
+        e.preventDefault()
+        toggleVoiceInput()
+        return
+      }
+
+      // Prompt Enhancement: Ctrl+E / Cmd+E or Alt+E
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") ||
+        (e.altKey && e.key.toLowerCase() === "e")
+      ) {
+        e.preventDefault()
+        handleEnhancePrompt()
+        return
+      }
+
+      // Toggle Research / Chat Mode: Ctrl+Shift+M or Alt+R
+      if (
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === "m" || e.key.toLowerCase() === "r")) ||
+        (e.altKey && e.key.toLowerCase() === "r")
+      ) {
+        e.preventDefault()
+        const next = !isResearchMode
+        onToggleMode(next)
+        toast({
+          title: next ? "Agent Research Mode Active" : "Simple Chat Mode Active",
+          description: next
+            ? "Switched to deep web research with multi-source synthesis."
+            : "Switched to fast, direct answers.",
+        })
+        return
       }
     }
     window.addEventListener("keydown", handleGlobalKeyDown)
     return () => window.removeEventListener("keydown", handleGlobalKeyDown)
-  }, [loading])
+  }, [loading, input, isListening, isResearchMode])
 
   // Stop / Cancel active generation
   const handleStopGeneration = () => {
@@ -506,7 +545,7 @@ export function AgentMode({
     handleSubmit(editedPromptText.trim())
   }
 
-  // Keyboard Submission (IME safe)
+  // Keyboard Submission & In-Input Shortcuts (IME safe)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -514,6 +553,44 @@ export function AgentMode({
         return
       }
       handleSubmit()
+      return
+    }
+
+    // Ctrl+M / Cmd+M or Alt+M: Toggle Voice Input
+    if (
+      ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "m") ||
+      (e.altKey && e.key.toLowerCase() === "m")
+    ) {
+      e.preventDefault()
+      toggleVoiceInput()
+      return
+    }
+
+    // Ctrl+E / Cmd+E or Alt+E: Enhance Prompt
+    if (
+      ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") ||
+      (e.altKey && e.key.toLowerCase() === "e")
+    ) {
+      e.preventDefault()
+      handleEnhancePrompt()
+      return
+    }
+
+    // Ctrl+Shift+M or Alt+R: Toggle Mode
+    if (
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === "m" || e.key.toLowerCase() === "r")) ||
+      (e.altKey && e.key.toLowerCase() === "r")
+    ) {
+      e.preventDefault()
+      const next = !isResearchMode
+      onToggleMode(next)
+      toast({
+        title: next ? "Agent Research Mode Active" : "Simple Chat Mode Active",
+        description: next
+          ? "Switched to deep web research with multi-source synthesis."
+          : "Switched to fast, direct answers.",
+      })
+      return
     }
   }
 
@@ -1079,11 +1156,7 @@ export function AgentMode({
                       ? "text-indigo-300 bg-indigo-500/15 border border-indigo-500/40 shadow-sm shadow-indigo-500/10 hover:bg-indigo-500/25"
                       : "text-zinc-400 bg-zinc-850/60 border border-zinc-750 hover:bg-zinc-800 hover:text-zinc-200"
                   }`}
-                  title={
-                    isResearchMode
-                      ? "Research Mode active: web search & multi-source synthesis enabled."
-                      : "Click to enable Agent Research Mode."
-                  }
+                  title={`Switch to ${isResearchMode ? "Simple Chat" : "Agent Research"} mode (Ctrl+Shift+M or Alt+R)`}
                 >
                   <Globe
                     className={`w-3.5 h-3.5 ${
@@ -1103,7 +1176,7 @@ export function AgentMode({
                       ? "bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
                   }`}
-                  title={isListening ? "Listening... click to stop" : "Voice input (Speech to text)"}
+                  title={isListening ? "Listening... click to stop (Ctrl+M / Alt+M)" : "Voice input (Speech to text) (Ctrl+M / Alt+M)"}
                 >
                   {isListening ? (
                     <>

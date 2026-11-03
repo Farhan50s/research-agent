@@ -8,6 +8,7 @@ interface HeaderProps {
   onNewChat: () => void
   onRenameChat?: (newTitle: string) => void
   onOpenShortcuts: () => void
+  onToggleMode?: () => void
 }
 
 export function Header({
@@ -17,6 +18,7 @@ export function Header({
   onNewChat,
   onRenameChat,
   onOpenShortcuts,
+  onToggleMode,
 }: HeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [tempTitle, setTempTitle] = useState(chatTitle)
@@ -100,13 +102,16 @@ export function Header({
 
       {/* Right Section: Mode Indicator, Shortcuts & New Chat */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Active Mode Pill */}
-        <div
-          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border select-none transition-colors ${
+        {/* Active Mode Pill / Toggle */}
+        <button
+          type="button"
+          onClick={onToggleMode}
+          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border select-none transition-all cursor-pointer ${
             isResearchMode
-              ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
-              : "bg-teal-500/10 border-teal-500/20 text-teal-400"
+              ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20"
+              : "bg-teal-500/10 border-teal-500/20 text-teal-400 hover:bg-teal-500/20"
           }`}
+          title={`Switch to ${isResearchMode ? "Simple Chat" : "Agent Research"} mode (Ctrl+Shift+M or Alt+R)`}
         >
           {isResearchMode ? (
             <>
@@ -119,7 +124,7 @@ export function Header({
               <span>Simple Chat</span>
             </>
           )}
-        </div>
+        </button>
 
         {/* Backend Status indicator */}
         <div

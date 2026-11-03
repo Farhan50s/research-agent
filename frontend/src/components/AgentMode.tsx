@@ -795,98 +795,6 @@ export function AgentMode({
                                     • {isResearchMode ? "Synthesized Research" : "Direct Answer"}
                                   </span>
                                 </div>
-
-                                {/* Comprehensive Message Action Toolbar */}
-                                <div className="flex items-center gap-1 opacity-70 group-hover/msg:opacity-100 transition-opacity">
-                                  {/* Read Aloud Button */}
-                                  <button
-                                    onClick={() => handleReadAloud(message.text, message.id)}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${
-                                      speakingMessageId === message.id
-                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse"
-                                        : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
-                                    }`}
-                                    title={speakingMessageId === message.id ? "Stop reading aloud" : "Read aloud (Text to speech)"}
-                                  >
-                                    {speakingMessageId === message.id ? (
-                                      <>
-                                        <VolumeX className="w-3 h-3 text-emerald-400" />
-                                        <span className="text-emerald-400 font-medium">Stop</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Volume2 className="w-3 h-3" />
-                                        <span>Listen</span>
-                                      </>
-                                    )}
-                                  </button>
-
-                                  {/* Regenerate Button */}
-                                  <button
-                                    onClick={() => handleRegenerate(message.id)}
-                                    disabled={loading}
-                                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors disabled:opacity-40"
-                                    title="Regenerate this response"
-                                  >
-                                    <RotateCw className="w-3 h-3" />
-                                    <span>Retry</span>
-                                  </button>
-
-                                  {/* Copy Button */}
-                                  <button
-                                    onClick={() => handleCopyReport(message.text, message.id)}
-                                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                                    title="Copy entire report"
-                                  >
-                                    {copiedMessageId === message.id ? (
-                                      <>
-                                        <Check className="w-3 h-3 text-emerald-400" />
-                                        <span className="text-emerald-400 font-medium">Copied</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="w-3 h-3" />
-                                        <span>Copy</span>
-                                      </>
-                                    )}
-                                  </button>
-
-                                  {/* Export Markdown Button */}
-                                  <button
-                                    onClick={() => handleDownloadReport(message.text)}
-                                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                                    title="Download as Markdown (.md)"
-                                  >
-                                    <Download className="w-3 h-3" />
-                                    <span>Export</span>
-                                  </button>
-
-                                  {/* Helpful Feedback Reactions */}
-                                  <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-zinc-800">
-                                    <button
-                                      onClick={() => handleFeedback(message.id, "up")}
-                                      className={`p-1 rounded transition-colors ${
-                                        feedbackMap[message.id] === "up"
-                                          ? "text-emerald-400 bg-emerald-500/10"
-                                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-                                      }`}
-                                      title="Helpful response"
-                                    >
-                                      <ThumbsUp className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleFeedback(message.id, "down")}
-                                      className={`p-1 rounded transition-colors ${
-                                        feedbackMap[message.id] === "down"
-                                          ? "text-rose-400 bg-rose-500/10"
-                                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-                                      }`}
-                                      title="Unhelpful response"
-                                    >
-                                      <ThumbsDown className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </div>
                               </div>
 
                               <ReactMarkdown
@@ -952,6 +860,101 @@ export function AgentMode({
                                   </div>
                                 </div>
                               )}
+
+                              {/* Action Toolbar at the end of the chat response */}
+                              <div className="mt-5 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-2.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {/* Read Aloud Button */}
+                                  <button
+                                    onClick={() => handleReadAloud(message.text, message.id)}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                                      speakingMessageId === message.id
+                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse"
+                                        : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 border border-zinc-800/60"
+                                    }`}
+                                    title={speakingMessageId === message.id ? "Stop reading aloud" : "Read aloud (Text to speech)"}
+                                  >
+                                    {speakingMessageId === message.id ? (
+                                      <>
+                                        <VolumeX className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>Stop</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Volume2 className="w-3.5 h-3.5" />
+                                        <span>Listen</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  {/* Regenerate Button */}
+                                  <button
+                                    onClick={() => handleRegenerate(message.id)}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 border border-zinc-800/60 transition-all disabled:opacity-40"
+                                    title="Regenerate this response"
+                                  >
+                                    <RotateCw className="w-3.5 h-3.5" />
+                                    <span>Retry</span>
+                                  </button>
+
+                                  {/* Copy Button */}
+                                  <button
+                                    onClick={() => handleCopyReport(message.text, message.id)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 border border-zinc-800/60 transition-all"
+                                    title="Copy entire report"
+                                  >
+                                    {copiedMessageId === message.id ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span className="text-emerald-400">Copied</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  {/* Export Markdown Button */}
+                                  <button
+                                    onClick={() => handleDownloadReport(message.text)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 border border-zinc-800/60 transition-all"
+                                    title="Download as Markdown (.md)"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Export</span>
+                                  </button>
+                                </div>
+
+                                {/* Helpful Feedback Reactions */}
+                                <div className="flex items-center gap-1 border-l border-zinc-800 pl-2">
+                                  <span className="text-[10px] text-zinc-500 mr-1 hidden sm:inline">Was this helpful?</span>
+                                  <button
+                                    onClick={() => handleFeedback(message.id, "up")}
+                                    className={`p-1.5 rounded-md border transition-all ${
+                                      feedbackMap[message.id] === "up"
+                                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80 border-transparent"
+                                    }`}
+                                    title="Helpful response"
+                                  >
+                                    <ThumbsUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleFeedback(message.id, "down")}
+                                    className={`p-1.5 rounded-md border transition-all ${
+                                      feedbackMap[message.id] === "down"
+                                        ? "text-rose-400 bg-rose-500/10 border-rose-500/30"
+                                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80 border-transparent"
+                                    }`}
+                                    title="Unhelpful response"
+                                  >
+                                    <ThumbsDown className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>

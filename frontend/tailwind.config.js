@@ -12,6 +12,10 @@ export default {
         display: ['Outfit', 'sans-serif'],
       },
       colors: {
+        zinc: {
+          850: "#1f1f23",
+          750: "#333338",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -10,7 +10,6 @@ import {
   Copy,
   Check,
   Download,
-  Share2,
   Atom,
   HeartPulse,
   Zap,
@@ -19,8 +18,17 @@ import {
   PenTool,
   Compass,
   X,
-  Search,
-  BookOpen
+  BookOpen,
+  Square,
+  RotateCw,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  ThumbsUp,
+  ThumbsDown,
+  Wand2,
+  Edit3
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/hooks/use-toast"
@@ -48,6 +56,8 @@ interface AgentModeProps {
   isResearchMode: boolean
   onToggleMode: (val: boolean) => void
 }
+
+type ToneType = "balanced" | "executive" | "academic" | "eli5"
 
 const researchPromptCards = [
   {
@@ -97,10 +107,10 @@ const simplePromptCards = [
 
 // Animated stepped progress messages for deep research
 const researchLoadingSteps = [
-  "Analyzing question & formulating targeted queries...",
-  "Searching live web indexes via Tavily...",
-  "Extracting relevant evidence & evaluating reliability...",
-  "Synthesizing findings into structured research report...",
+  "Formulating targeted search vectors with reasoning engine...",
+  "Querying verified web indexes via Tavily...",
+  "Cross-referencing evidence and evaluating source reliability...",
+  "Synthesizing structured findings into comprehensive report...",
 ]
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "")
@@ -116,10 +126,26 @@ export function AgentMode({
   const [loadingStepIdx, setLoadingStepIdx] = useState(0)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  
+  // Advanced features state
+  const [tone, setTone] = useState<ToneType>("balanced")
+  const [isListening, setIsListening] = useState(false)
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null)
+  const [editedPromptText, setEditedPromptText] = useState("")
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, "up" | "down">>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("zynt_feedback") || "{}")
+    } catch {
+      return {}
+    }
+  })
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const recognitionRef = useRef<any>(null)
 
   // Cycle through research loading steps for rich progress feedback
   useEffect(() => {
@@ -128,7 +154,7 @@ export function AgentMode({
       setLoadingStepIdx(0)
       interval = setInterval(() => {
         setLoadingStepIdx((prev) => (prev < researchLoadingSteps.length - 1 ? prev + 1 : prev))
-      }, 3500)
+      }, 2800)
     } else {
       setLoadingStepIdx(0)
     }
@@ -156,20 +182,217 @@ export function AgentMode({
     inputRef.current?.focus()
   }, [])
 
-  const handleSubmit = async (q?: string) => {
-    const queryText = (q ?? input).trim()
-    if (!queryText || loading) return
+  // Clean speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel()
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+    }
+  }, [])
+
+  // Global Escape key cancels in-flight generation
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && loading) {
+        e.preventDefault()
+        handleStopGeneration()
+      }
+    }
+    window.addEventListener("keydown", handleGlobalKeyDown)
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown)
+  }, [loading])
+
+  // Stop / Cancel active generation
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setLoading(false)
+    // Remove empty loading message if present
+    onUpdateMessages(sessionMessages.filter((m) => !m.isLoading))
+    toast({
+      title: "Generation Halted",
+      description: "Research request was cancelled.",
+    })
+  }
+
+  // Speech-to-Text Voice Input
+  const toggleVoiceInput = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      toast({
+        title: "Speech Recognition Unavailable",
+        description: "Your browser does not support Web Speech. Please use Google Chrome or Microsoft Edge.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognition()
+      recognition.lang = "en-US"
+      recognition.continuous = true
+      recognition.interimResults = true
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        toast({
+          title: "Listening...",
+          description: "Speak clearly into your microphone.",
+        })
+      }
+
+      recognition.onresult = (event: any) => {
+        let transcript = ""
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        if (transcript) {
+          setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error)
+        setIsListening(false)
+        if (event.error !== "no-speech") {
+          toast({
+            title: "Microphone Error",
+            description: `Speech input error: ${event.error}`,
+            variant: "destructive",
+          })
+        }
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+    } catch (e: any) {
+      console.error(e)
+      setIsListening(false)
+    }
+  }
+
+  // Text-to-Speech (Read Aloud)
+  const handleReadAloud = (text: string, id: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      toast({
+        title: "Text-to-Speech Unavailable",
+        description: "Your browser does not support audio speech synthesis.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (speakingMessageId === id) {
+      window.speechSynthesis.cancel()
+      setSpeakingMessageId(null)
+      return
+    }
+
+    window.speechSynthesis.cancel()
+
+    // Strip markdown formatting symbols for natural spoken speech
+    const cleanSpeechText = text
+      .replace(/###\s+/g, "")
+      .replace(/##\s+/g, "")
+      .replace(/#\s+/g, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/\[\d+\]/g, "")
+      .replace(/\[\^?\w+\]/g, "")
+      .replace(/https?:\/\/[^\s)]+/g, "")
+      .replace(/\|/g, " ")
+      .replace(/-{3,}/g, "")
+      .trim()
+
+    const utterance = new SpeechSynthesisUtterance(cleanSpeechText.slice(0, 1500))
+    utterance.rate = 1.05
+    utterance.pitch = 1.0
+
+    utterance.onend = () => setSpeakingMessageId(null)
+    utterance.onerror = () => setSpeakingMessageId(null)
+
+    window.speechSynthesis.speak(utterance)
+    setSpeakingMessageId(id)
+  }
+
+  // Feedback (Thumbs Up / Thumbs Down)
+  const handleFeedback = (id: string, type: "up" | "down") => {
+    const updated = {
+      ...feedbackMap,
+      [id]: feedbackMap[id] === type ? undefined : type,
+    }
+    // Clean undefined
+    if (!updated[id]) delete updated[id]
+
+    setFeedbackMap(updated as Record<string, "up" | "down">)
+    localStorage.setItem("zynt_feedback", JSON.stringify(updated))
+    toast({
+      title: type === "up" ? "Helpful Feedback Saved" : "Feedback Received",
+      description: type === "up" ? "Glad this research was useful!" : "Thanks for helping us refine Zynt AI.",
+    })
+  }
+
+  // Prompt Enhancer (Magic Wand)
+  const handleEnhancePrompt = () => {
+    const trimmed = input.trim()
+    if (!trimmed) return
+
+    let enhanced = trimmed
+    if (isResearchMode) {
+      enhanced = `Conduct an in-depth research investigation on: ${trimmed}. Provide core principles, recent 2024 breakthroughs, key challenges, and industry implications.`
+    } else {
+      enhanced = `Provide a comprehensive, clear, and well-structured answer explaining: ${trimmed}. Include practical examples and key takeaways.`
+    }
+
+    setInput(enhanced)
+    toast({
+      title: "Prompt Enhanced",
+      description: "Expanded prompt with research instructions for maximum depth.",
+    })
+  }
+
+  // Core Submit Handler
+  const handleSubmit = async (q?: string, targetAssistantId?: string) => {
+    const rawQuery = (q ?? input).trim()
+    if (!rawQuery || loading) return
+
+    // Apply Persona / Tone prefix if applicable
+    let finalPrompt = rawQuery
+    if (tone === "executive") {
+      finalPrompt = `[Executive Brief format: prioritize concise, high-impact bullet points and strategic decisions]: ${rawQuery}`
+    } else if (tone === "academic") {
+      finalPrompt = `[Academic Analysis format: emphasize formal methodology, evidence, and theoretical rigor]: ${rawQuery}`
+    } else if (tone === "eli5") {
+      finalPrompt = `[Explain Like I'm 5 format: use clear, everyday analogies and zero technical jargon]: ${rawQuery}`
+    }
 
     setInput("")
     setLoading(true)
 
     const userMessageId = `msg-${Date.now()}-user`
-    const assistantMessageId = `msg-${Date.now()}-assistant`
+    const assistantMessageId = targetAssistantId || `msg-${Date.now()}-assistant`
 
     const userMsg: Message = {
       id: userMessageId,
       role: "user",
-      text: queryText,
+      text: rawQuery,
     }
 
     const loadingMsg: Message = {
@@ -179,15 +402,28 @@ export function AgentMode({
       isLoading: true,
     }
 
-    const messagesSnapshot = [...sessionMessages]
-    onUpdateMessages([...messagesSnapshot, userMsg, loadingMsg])
+    let messagesSnapshot = [...sessionMessages]
+    if (targetAssistantId) {
+      // Regenerate flow: replace existing assistant message with loading
+      messagesSnapshot = messagesSnapshot.map((m) =>
+        m.id === targetAssistantId ? loadingMsg : m
+      )
+      onUpdateMessages(messagesSnapshot)
+    } else {
+      messagesSnapshot = [...messagesSnapshot, userMsg, loadingMsg]
+      onUpdateMessages(messagesSnapshot)
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
-          question: queryText,
+          question: finalPrompt,
           mode: isResearchMode ? "research" : "simple",
         }),
       })
@@ -197,7 +433,10 @@ export function AgentMode({
         try {
           const errData = await response.json()
           if (errData && errData.detail) {
-            errorDetail = typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail)
+            errorDetail =
+              typeof errData.detail === "string"
+                ? errData.detail
+                : JSON.stringify(errData.detail)
           }
         } catch {}
         throw new Error(errorDetail)
@@ -205,19 +444,27 @@ export function AgentMode({
 
       const data = await response.json()
 
-      onUpdateMessages([
-        ...messagesSnapshot,
-        userMsg,
-        {
-          id: assistantMessageId,
-          role: "assistant",
-          text: data.research_data || "No response received.",
-          sources: data.metadata || [],
-          isLoading: false,
-        },
-      ])
+      const finalMessages = messagesSnapshot.map((m) => {
+        if (m.id === assistantMessageId) {
+          return {
+            id: assistantMessageId,
+            role: "assistant" as const,
+            text: data.research_data || "No response received.",
+            sources: data.metadata || [],
+            isLoading: false,
+          }
+        }
+        return m
+      })
+
+      onUpdateMessages(finalMessages)
     } catch (error: any) {
-      onUpdateMessages([...messagesSnapshot, userMsg])
+      if (error?.name === "AbortError") {
+        // Handled cleanly by handleStopGeneration
+        return
+      }
+      // Remove loading indicator on failure
+      onUpdateMessages(messagesSnapshot.filter((m) => m.id !== assistantMessageId))
       toast({
         title: "Research Request Error",
         description:
@@ -225,12 +472,39 @@ export function AgentMode({
         variant: "destructive",
       })
     } finally {
+      abortControllerRef.current = null
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }
 
-  // IME-safe submission as recommended by Modern Web Guidance
+  // Regenerate Assistant Message
+  const handleRegenerate = (assistantId: string) => {
+    const idx = sessionMessages.findIndex((m) => m.id === assistantId)
+    if (idx <= 0) return
+    const prevUserMsg = sessionMessages[idx - 1]
+    if (prevUserMsg && prevUserMsg.role === "user") {
+      handleSubmit(prevUserMsg.text, assistantId)
+    }
+  }
+
+  // Save Edited User Prompt & Resubmit
+  const handleSaveEditedPrompt = (messageId: string) => {
+    if (!editedPromptText.trim()) {
+      setEditingPromptId(null)
+      return
+    }
+    const idx = sessionMessages.findIndex((m) => m.id === messageId)
+    if (idx === -1) return
+
+    // Truncate messages after this point and resubmit
+    const truncated = sessionMessages.slice(0, idx)
+    onUpdateMessages(truncated)
+    setEditingPromptId(null)
+    handleSubmit(editedPromptText.trim())
+  }
+
+  // Keyboard Submission (IME safe)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -264,9 +538,14 @@ export function AgentMode({
     link.download = filename
     link.click()
     URL.revokeObjectURL(url)
+    toast({
+      title: "Report Downloaded",
+      description: `Saved as ${filename}`,
+    })
   }
 
   const promptCards = isResearchMode ? researchPromptCards : simplePromptCards
+  const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
 
   return (
     <div
@@ -391,29 +670,72 @@ export function AgentMode({
                     className={`flex ${isUser ? "justify-end" : "justify-start"} w-full group/msg`}
                   >
                     <div
-                      className={`max-w-[92%] sm:max-w-[85%] ${
+                      className={`max-w-[94%] sm:max-w-[88%] ${
                         isUser ? "text-right" : "text-left"
                       }`}
                     >
                       {isUser ? (
                         /* User Message Bubble */
                         <div className="relative inline-block text-left">
-                          <div className="bg-zinc-800/90 text-zinc-50 border border-zinc-700/60 px-5 py-3 rounded-2xl rounded-tr-sm text-sm shadow-md backdrop-blur-sm">
-                            <p className="leading-relaxed whitespace-pre-wrap selection:bg-indigo-500/40">
-                              {message.text}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => handleCopyReport(message.text, message.id)}
-                            className="absolute -left-8 top-2 opacity-0 group-hover/msg:opacity-100 p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all"
-                            title="Copy prompt"
-                          >
-                            {copiedMessageId === message.id ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                          {editingPromptId === message.id ? (
+                            /* Inline Edit Mode */
+                            <div className="bg-zinc-900 border border-indigo-500/50 p-3 rounded-2xl shadow-xl w-72 sm:w-96">
+                              <textarea
+                                value={editedPromptText}
+                                onChange={(e) => setEditedPromptText(e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-100 outline-none resize-none focus:border-indigo-500"
+                                rows={3}
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end gap-2 mt-2">
+                                <button
+                                  onClick={() => setEditingPromptId(null)}
+                                  className="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleSaveEditedPrompt(message.id)}
+                                  className="px-3 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500"
+                                >
+                                  Save & Submit
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="bg-zinc-800/90 text-zinc-50 border border-zinc-700/60 px-5 py-3 rounded-2xl rounded-tr-sm text-sm shadow-md backdrop-blur-sm">
+                                <p className="leading-relaxed whitespace-pre-wrap selection:bg-indigo-500/40">
+                                  {message.text}
+                                </p>
+                              </div>
+
+                              {/* Action Bar on User Message */}
+                              <div className="absolute -left-16 top-2 flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => {
+                                    setEditingPromptId(message.id)
+                                    setEditedPromptText(message.text)
+                                  }}
+                                  className="p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all"
+                                  title="Edit and resubmit question"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleCopyReport(message.text, message.id)}
+                                  className="p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all"
+                                  title="Copy prompt"
+                                >
+                                  {copiedMessageId === message.id ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : (
                         /* Assistant Message Bubble */
@@ -421,13 +743,23 @@ export function AgentMode({
                           {message.isLoading ? (
                             /* Multi-step Live Reasoning Indicator */
                             <div className="p-5 bg-zinc-900/90 border border-zinc-800/90 rounded-2xl rounded-tl-sm w-full max-w-lg shadow-lg">
-                              <div className="flex items-center gap-2.5 mb-3">
-                                <div className="w-5 h-5 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
-                                  <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-5 h-5 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+                                    <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                                  </div>
+                                  <span className="text-xs font-semibold text-zinc-200">
+                                    {isResearchMode ? "Zynt Deep Research Agent" : "Zynt AI"}
+                                  </span>
                                 </div>
-                                <span className="text-xs font-semibold text-zinc-200">
-                                  {isResearchMode ? "Zynt Deep Research Agent" : "Zynt AI"}
-                                </span>
+                                <button
+                                  onClick={handleStopGeneration}
+                                  className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 font-mono"
+                                  title="Stop generation (Esc)"
+                                >
+                                  <Square className="w-3 h-3 fill-current" />
+                                  <span>Stop</span>
+                                </button>
                               </div>
 
                               {/* Progress Status Text */}
@@ -464,8 +796,43 @@ export function AgentMode({
                                   </span>
                                 </div>
 
-                                {/* Message action toolbar */}
-                                <div className="flex items-center gap-1 opacity-60 group-hover/msg:opacity-100 transition-opacity">
+                                {/* Comprehensive Message Action Toolbar */}
+                                <div className="flex items-center gap-1 opacity-70 group-hover/msg:opacity-100 transition-opacity">
+                                  {/* Read Aloud Button */}
+                                  <button
+                                    onClick={() => handleReadAloud(message.text, message.id)}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${
+                                      speakingMessageId === message.id
+                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse"
+                                        : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                                    }`}
+                                    title={speakingMessageId === message.id ? "Stop reading aloud" : "Read aloud (Text to speech)"}
+                                  >
+                                    {speakingMessageId === message.id ? (
+                                      <>
+                                        <VolumeX className="w-3 h-3 text-emerald-400" />
+                                        <span className="text-emerald-400 font-medium">Stop</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Volume2 className="w-3 h-3" />
+                                        <span>Listen</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  {/* Regenerate Button */}
+                                  <button
+                                    onClick={() => handleRegenerate(message.id)}
+                                    disabled={loading}
+                                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors disabled:opacity-40"
+                                    title="Regenerate this response"
+                                  >
+                                    <RotateCw className="w-3 h-3" />
+                                    <span>Retry</span>
+                                  </button>
+
+                                  {/* Copy Button */}
                                   <button
                                     onClick={() => handleCopyReport(message.text, message.id)}
                                     className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
@@ -483,14 +850,42 @@ export function AgentMode({
                                       </>
                                     )}
                                   </button>
+
+                                  {/* Export Markdown Button */}
                                   <button
                                     onClick={() => handleDownloadReport(message.text)}
                                     className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                                    title="Download as Markdown"
+                                    title="Download as Markdown (.md)"
                                   >
                                     <Download className="w-3 h-3" />
                                     <span>Export</span>
                                   </button>
+
+                                  {/* Helpful Feedback Reactions */}
+                                  <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-zinc-800">
+                                    <button
+                                      onClick={() => handleFeedback(message.id, "up")}
+                                      className={`p-1 rounded transition-colors ${
+                                        feedbackMap[message.id] === "up"
+                                          ? "text-emerald-400 bg-emerald-500/10"
+                                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                                      }`}
+                                      title="Helpful response"
+                                    >
+                                      <ThumbsUp className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleFeedback(message.id, "down")}
+                                      className={`p-1 rounded transition-colors ${
+                                        feedbackMap[message.id] === "down"
+                                          ? "text-rose-400 bg-rose-500/10"
+                                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                                      }`}
+                                      title="Unhelpful response"
+                                    >
+                                      <ThumbsDown className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
 
@@ -578,7 +973,7 @@ export function AgentMode({
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
-            className="fixed bottom-36 left-1/2 -translate-x-1/2 z-30"
+            className="fixed bottom-40 left-1/2 -translate-x-1/2 z-30"
           >
             <button
               onClick={() => scrollToBottom({ behavior: "smooth" })}
@@ -594,6 +989,42 @@ export function AgentMode({
       {/* Sticky Bottom Input Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent pt-8 pb-5 z-20 pointer-events-none">
         <div className="max-w-3xl mx-auto px-4 pointer-events-auto">
+          {/* Research Tone / Persona Pills */}
+          <div className="flex items-center justify-between px-2 mb-2 text-[11px]">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-wider mr-1 select-none">
+                Tone:
+              </span>
+              {(
+                [
+                  { id: "balanced", label: "⚖️ Balanced" },
+                  { id: "executive", label: "📋 Executive" },
+                  { id: "academic", label: "🎓 Academic" },
+                  { id: "eli5", label: "💡 ELI5" },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTone(t.id)}
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all ${
+                    tone === t.id
+                      ? "bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm"
+                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Live Stats: Word and Char counter */}
+            {input.length > 0 && (
+              <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline select-none">
+                {wordCount} words • {input.length} chars
+              </span>
+            )}
+          </div>
+
           <div
             className={`relative flex flex-col bg-zinc-900/95 border border-zinc-800 rounded-2xl shadow-2xl backdrop-blur-xl transition-all duration-300 overflow-hidden ${
               isResearchMode
@@ -609,7 +1040,9 @@ export function AgentMode({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  isResearchMode
+                  isListening
+                    ? "Listening... speak now..."
+                    : isResearchMode
                     ? "Ask the Research Agent anything (e.g. latest news, technology, science)..."
                     : "Message Zynt AI..."
                 }
@@ -618,7 +1051,7 @@ export function AgentMode({
               />
 
               {/* Clear button if text exists */}
-              {input.length > 0 && (
+              {input.length > 0 && !loading && (
                 <button
                   onClick={() => setInput("")}
                   className="absolute right-3 top-3 p-1 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
@@ -631,8 +1064,8 @@ export function AgentMode({
 
             {/* Bottom Half: Action Bar */}
             <div className="flex items-center justify-between px-3.5 pb-3 pt-1 border-t border-zinc-850/40">
-              {/* Mode Toggle Button on Left */}
-              <div className="flex items-center gap-2">
+              {/* Left Side: Mode Toggle + Tools */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => onToggleMode(!isResearchMode)}
@@ -654,39 +1087,83 @@ export function AgentMode({
                   />
                   <span>Agent Research</span>
                 </button>
+
+                {/* Voice Input (Speech to Text) */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={loading}
+                  className={`p-1.5 rounded-lg text-xs transition-colors flex items-center gap-1 ${
+                    isListening
+                      ? "bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                  }`}
+                  title={isListening ? "Listening... click to stop" : "Voice input (Speech to text)"}
+                >
+                  {isListening ? (
+                    <>
+                      <MicOff className="w-3.5 h-3.5 text-rose-400" />
+                      <span className="text-[10px] text-rose-400 font-mono hidden sm:inline">Listening</span>
+                    </>
+                  ) : (
+                    <Mic className="w-3.5 h-3.5" />
+                  )}
+                </button>
+
+                {/* Prompt Enhancer (Magic Wand) */}
+                <button
+                  type="button"
+                  onClick={handleEnhancePrompt}
+                  disabled={!input.trim() || loading}
+                  className="p-1.5 rounded-lg text-xs text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  title="Enhance prompt for maximum research depth"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              {/* Right side: Keyboard hint + Send Button */}
+              {/* Right Side: Keyboard hint + Stop / Send Button */}
               <div className="flex items-center gap-2.5">
                 <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline select-none">
                   ↵ to send • ⇧↵ newline
                 </span>
 
-                <button
-                  id="chat-send-btn"
-                  onClick={() => handleSubmit()}
-                  disabled={!input.trim() || loading}
-                  className={`w-8 h-8 rounded-xl transition-all duration-200 flex items-center justify-center active:scale-95 ${
-                    input.trim() && !loading
-                      ? isResearchMode
-                        ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 cursor-pointer"
-                        : "bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/30 cursor-pointer"
-                      : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  }`}
-                  title="Send message"
-                  aria-label="Send message"
-                >
-                  {loading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin text-zinc-300" />
-                  ) : (
+                {loading ? (
+                  /* Dedicated Stop Button */
+                  <button
+                    type="button"
+                    onClick={handleStopGeneration}
+                    className="h-8 px-3 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 flex items-center gap-1.5 text-xs font-medium shadow-md shadow-rose-500/10 cursor-pointer animate-pulse transition-all active:scale-95"
+                    title="Stop generating (Esc)"
+                    aria-label="Stop generating"
+                  >
+                    <Square className="w-3 h-3 fill-rose-300" />
+                    <span>Stop</span>
+                  </button>
+                ) : (
+                  /* Send Button */
+                  <button
+                    id="chat-send-btn"
+                    onClick={() => handleSubmit()}
+                    disabled={!input.trim()}
+                    className={`w-8 h-8 rounded-xl transition-all duration-200 flex items-center justify-center active:scale-95 ${
+                      input.trim()
+                        ? isResearchMode
+                          ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 cursor-pointer"
+                          : "bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/30 cursor-pointer"
+                        : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                    }`}
+                    title="Send message"
+                    aria-label="Send message"
+                  >
                     <ArrowUp className="w-4 h-4" />
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          <p className="text-[10px] text-zinc-500 text-center mt-2.5 select-none tracking-tight">
+          <p className="text-[10px] text-zinc-500 text-center mt-2 select-none tracking-tight">
             {isResearchMode
               ? "Zynt compiles live intelligence from verified web indexes. Always verify critical facts."
               : "Zynt AI may produce inaccurate information. Please verify important details."}

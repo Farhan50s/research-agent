@@ -10,6 +10,7 @@ export default defineConfig({
     open: true,
   },
   resolve: {
+    preserveSymlinks: true,
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },

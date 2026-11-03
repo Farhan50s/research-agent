@@ -375,24 +375,58 @@ export function AgentMode({
     })
   }
 
-  // Prompt Enhancer (Magic Wand)
+  // Prompt Enhancer (Magic Wand) - unwraps prior enhancements to avoid nesting
   const handleEnhancePrompt = () => {
     const trimmed = input.trim()
     if (!trimmed) return
 
-    let enhanced = trimmed
+    const researchRegex = /^Conduct an in-depth research investigation on: (.*?)\. Provide core principles, latest \d{4} breakthroughs, key challenges, and industry implications\.$/
+    const simpleRegex = /^Provide a comprehensive, clear, and well-structured answer explaining: (.*?)\. Include practical examples and key takeaways\.$/
+
+    let coreQuery = trimmed
+    const matchR = trimmed.match(researchRegex)
+    const matchS = trimmed.match(simpleRegex)
+    if (matchR && matchR[1]) coreQuery = matchR[1]
+    else if (matchS && matchS[1]) coreQuery = matchS[1]
+
+    let enhanced = coreQuery
     if (isResearchMode) {
-      enhanced = `Conduct an in-depth research investigation on: ${trimmed}. Provide core principles, latest ${CURRENT_YEAR} breakthroughs, key challenges, and industry implications.`
+      enhanced = `Conduct an in-depth research investigation on: ${coreQuery}. Provide core principles, latest ${CURRENT_YEAR} breakthroughs, key challenges, and industry implications.`
     } else {
-      enhanced = `Provide a comprehensive, clear, and well-structured answer explaining: ${trimmed}. Include practical examples and key takeaways.`
+      enhanced = `Provide a comprehensive, clear, and well-structured answer explaining: ${coreQuery}. Include practical examples and key takeaways.`
     }
 
     setInput(enhanced)
     toast({
-      title: "Prompt Enhanced",
-      description: "Expanded prompt with research instructions for maximum depth.",
+      title: isResearchMode ? "Research Prompt Enhanced" : "Chat Prompt Structured",
+      description: isResearchMode
+        ? "Expanded prompt with research instructions for maximum depth."
+        : "Structured prompt for a clear, direct answer with examples.",
     })
   }
+
+  // Seamlessly adapt prompt template when user toggles mode so there is never a clash
+  useEffect(() => {
+    if (!input.trim()) return
+
+    const researchRegex = /^Conduct an in-depth research investigation on: (.*?)\. Provide core principles, latest \d{4} breakthroughs, key challenges, and industry implications\.$/
+    const simpleRegex = /^Provide a comprehensive, clear, and well-structured answer explaining: (.*?)\. Include practical examples and key takeaways\.$/
+
+    if (!isResearchMode) {
+      // Switched to Simple Chat: convert research template to chat template
+      const match = input.match(researchRegex)
+      if (match && match[1]) {
+        setInput(`Provide a comprehensive, clear, and well-structured answer explaining: ${match[1]}. Include practical examples and key takeaways.`)
+      }
+    } else {
+      // Switched to Agent Research: convert chat template to research template
+      const match = input.match(simpleRegex)
+      if (match && match[1]) {
+        setInput(`Conduct an in-depth research investigation on: ${match[1]}. Provide core principles, latest ${CURRENT_YEAR} breakthroughs, key challenges, and industry implications.`)
+      }
+    }
+  }, [isResearchMode])
+
 
   // Core Submit Handler
   const handleSubmit = async (q?: string, targetAssistantId?: string) => {
@@ -1120,20 +1154,36 @@ export function AgentMode({
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
-                  onClick={() => onToggleMode(!isResearchMode)}
+                  onClick={() => {
+                    if (loading) {
+                      toast({
+                        title: "Action Restricted",
+                        description: "Cannot switch modes while generation is in progress. Press Stop (Esc) first.",
+                        variant: "destructive",
+                      })
+                      return
+                    }
+                    onToggleMode(!isResearchMode)
+                  }}
+                  disabled={loading}
                   className={`rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-all duration-200 select-none ${
                     isResearchMode
                       ? "text-indigo-300 bg-indigo-500/15 border border-indigo-500/40 shadow-sm shadow-indigo-500/10 hover:bg-indigo-500/25"
-                      : "text-zinc-400 bg-zinc-850/60 border border-zinc-750 hover:bg-zinc-800 hover:text-zinc-200"
-                  }`}
+                      : "text-teal-300 bg-teal-500/15 border border-teal-500/40 shadow-sm shadow-teal-500/10 hover:bg-teal-500/25"
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
                   title={`Switch to ${isResearchMode ? "Simple Chat" : "Agent Research"} mode (Ctrl+Shift+M or Alt+R)`}
                 >
-                  <Globe
-                    className={`w-3.5 h-3.5 ${
-                      isResearchMode ? "text-indigo-400 animate-pulse" : "text-zinc-400"
-                    }`}
-                  />
-                  <span>Agent Research</span>
+                  {isResearchMode ? (
+                    <>
+                      <Globe className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                      <span>Agent Research</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-3.5 h-3.5 text-teal-400" />
+                      <span>Simple Chat</span>
+                    </>
+                  )}
                 </button>
 
                 {/* Voice Input (Speech to Text) */}

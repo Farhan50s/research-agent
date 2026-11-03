@@ -145,6 +145,15 @@ export function App() {
         (e.altKey && e.key.toLowerCase() === "r")
       ) {
         e.preventDefault()
+        const isGenerating = activeSession?.messages?.some((m) => m.isLoading)
+        if (isGenerating) {
+          toast({
+            title: "Generation in Progress",
+            description: "Cannot switch modes while response is generating. Press Escape or wait for completion.",
+            variant: "destructive",
+          })
+          return
+        }
         setIsResearchMode((prev) => {
           const next = !prev
           toast({

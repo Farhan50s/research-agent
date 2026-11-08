@@ -59,6 +59,33 @@ interface AgentModeProps {
 
 type ToneType = "balanced" | "executive" | "academic" | "eli5"
 
+const toneOptions = [
+  {
+    id: "balanced" as const,
+    label: "Balanced",
+    icon: "⚖️",
+    desc: "Objective & well-rounded synthesis",
+  },
+  {
+    id: "executive" as const,
+    label: "Executive",
+    icon: "📋",
+    desc: "Key bullet points & strategic decisions",
+  },
+  {
+    id: "academic" as const,
+    label: "Academic",
+    icon: "🎓",
+    desc: "Rigorous analysis & deep citations",
+  },
+  {
+    id: "eli5" as const,
+    label: "ELI5",
+    icon: "💡",
+    desc: "Simple terms & everyday analogies",
+  },
+]
+
 const CURRENT_YEAR = new Date().getFullYear()
 
 const researchPromptCards = [
@@ -131,6 +158,32 @@ export function AgentMode({
   
   // Advanced features state
   const [tone, setTone] = useState<ToneType>("balanced")
+  const [isToneMenuOpen, setIsToneMenuOpen] = useState(false)
+  const toneMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close tone menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (toneMenuRef.current && !toneMenuRef.current.contains(e.target as Node)) {
+        setIsToneMenuOpen(false)
+      }
+    }
+    if (isToneMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isToneMenuOpen])
+
+  // Close tone menu on Escape
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isToneMenuOpen) {
+        setIsToneMenuOpen(false)
+      }
+    }
+    window.addEventListener("keydown", handleEsc)
+    return () => window.removeEventListener("keydown", handleEsc)
+  }, [isToneMenuOpen])
   const [isListening, setIsListening] = useState(false)
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null)
@@ -741,13 +794,14 @@ export function AgentMode({
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
 
   return (
-    <div
-      ref={scrollContainerRef}
-      onScroll={handleScroll}
-      className="flex-1 flex flex-col h-full overflow-y-auto relative scroll-smooth"
-    >
+    <div className="flex-1 flex flex-col h-full relative overflow-hidden">
       {/* Scrollable messages container */}
-      <div className="flex-1 max-w-3xl w-full mx-auto px-4 pb-48 pt-6">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto relative scroll-smooth"
+      >
+        <div className="max-w-3xl w-full mx-auto px-4 pb-48 pt-6">
         <AnimatePresence initial={false} mode="wait">
           {sessionMessages.length === 0 ? (
             /* EMPTY STATE GREETING */
@@ -1160,6 +1214,7 @@ export function AgentMode({
           )}
         </AnimatePresence>
         <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Floating "Scroll to Bottom" Button */}
@@ -1169,7 +1224,7 @@ export function AgentMode({
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
-            className="fixed bottom-40 left-1/2 -translate-x-1/2 z-30"
+            className="absolute bottom-40 left-1/2 -translate-x-1/2 z-30"
           >
             <button
               onClick={() => scrollToBottom({ behavior: "smooth" })}
@@ -1183,46 +1238,12 @@ export function AgentMode({
       </AnimatePresence>
 
       {/* Sticky Bottom Input Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent pt-8 pb-5 z-20 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent pt-8 pb-5 z-40 pointer-events-none">
         <div className="max-w-3xl mx-auto px-4 pointer-events-auto">
-          {/* Research Tone / Persona Pills */}
-          <div className="flex items-center justify-between px-2 mb-2 text-[11px]">
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-              <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-wider mr-1 select-none">
-                Tone:
-              </span>
-              {(
-                [
-                  { id: "balanced", label: "⚖️ Balanced" },
-                  { id: "executive", label: "📋 Executive" },
-                  { id: "academic", label: "🎓 Academic" },
-                  { id: "eli5", label: "💡 ELI5" },
-                ] as const
-              ).map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTone(t.id)}
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all ${
-                    tone === t.id
-                      ? "bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
 
-            {/* Live Stats: Word and Char counter */}
-            {input.length > 0 && (
-              <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline select-none">
-                {wordCount} words • {input.length} chars
-              </span>
-            )}
-          </div>
 
           <div
-            className={`relative flex flex-col bg-zinc-900/95 border border-zinc-800 rounded-2xl shadow-2xl backdrop-blur-xl transition-all duration-300 overflow-hidden ${
+            className={`relative flex flex-col bg-zinc-900/95 border border-zinc-800 rounded-2xl shadow-2xl backdrop-blur-xl transition-all duration-300 ${
               isResearchMode
                 ? "focus-within:border-indigo-500/50 focus-within:ring-2 focus-within:ring-indigo-500/10"
                 : "focus-within:border-teal-500/50 focus-within:ring-2 focus-within:ring-teal-500/10"
@@ -1324,17 +1345,106 @@ export function AgentMode({
                   onClick={handleEnhancePrompt}
                   disabled={!input.trim() || loading}
                   className="p-1.5 rounded-lg text-xs text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                  title="Enhance prompt for maximum research depth"
+                  title="Enhance prompt for maximum research depth (Ctrl+E / Alt+E)"
                 >
                   <Wand2 className="w-3.5 h-3.5" />
                 </button>
+
+                {/* Tone Selector Button & Animated Popover */}
+                <div className="relative" ref={toneMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsToneMenuOpen((prev) => !prev)}
+                    className={`h-7 px-2.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border select-none cursor-pointer ${
+                      isToneMenuOpen
+                        ? "bg-zinc-800 text-zinc-100 border-zinc-700 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 border-transparent"
+                    }`}
+                    title="Choose tone & persona"
+                    aria-label="Choose tone & persona"
+                    aria-expanded={isToneMenuOpen}
+                  >
+                    <span className="text-sm select-none">
+                      {toneOptions.find((t) => t.id === tone)?.icon || "⚖️"}
+                    </span>
+                    <span className="hidden sm:inline text-[11px] font-medium text-zinc-300">
+                      {toneOptions.find((t) => t.id === tone)?.label || "Tone"}
+                    </span>
+                    <ChevronDown
+                      className={`w-3 h-3 text-zinc-500 transition-transform duration-200 ${
+                        isToneMenuOpen ? "rotate-180 text-zinc-300" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Clean Animated Popover Menu */}
+                  <AnimatePresence>
+                    {isToneMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="absolute bottom-full right-0 sm:right-auto sm:left-0 mb-2.5 w-64 max-w-[calc(100vw-2.5rem)] bg-zinc-900 border border-zinc-750 rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.85)] p-1.5 z-50 overflow-hidden"
+                      >
+                        <div className="px-2.5 py-1.5 mb-1 border-b border-zinc-800/60 flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+                            Response Tone
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            Persona
+                          </span>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          {toneOptions.map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                setTone(t.id)
+                                setIsToneMenuOpen(false)
+                                toast({
+                                  title: `Tone: ${t.label}`,
+                                  description: t.desc,
+                                })
+                              }}
+                              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left text-xs transition-all cursor-pointer ${
+                                tone === t.id
+                                  ? "bg-zinc-800 text-white font-medium border border-zinc-700/60 shadow-sm"
+                                  : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 border border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="text-base select-none">{t.icon}</span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs text-zinc-200 leading-tight font-medium">
+                                    {t.label}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-500 truncate leading-tight mt-0.5">
+                                    {t.desc}
+                                  </span>
+                                </div>
+                              </div>
+                              {tone === t.id && (
+                                <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0 ml-2" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
-              {/* Right Side: Keyboard hint + Stop / Send Button */}
+              {/* Right Side: Keyboard hint / Stats + Stop / Send Button */}
               <div className="flex items-center gap-2.5">
-                <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline select-none">
-                  ↵ to send • ⇧↵ newline
-                </span>
+                {input.length > 0 && (
+                  <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline select-none">
+                    {wordCount}w • {input.length}c
+                  </span>
+                )}
 
                 {loading ? (
                   /* Dedicated Stop Button */
